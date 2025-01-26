@@ -34,7 +34,6 @@ public class DictionaryConnection {
      * don't match their expected value.
      */
     public DictionaryConnection(String host, int port) throws DictConnectionException {
-        // TODO Replace this with code that creates the requested connection
         try {
             dictSocket = new Socket(host, port);
             in = new BufferedReader(new InputStreamReader(dictSocket.getInputStream()));
@@ -42,7 +41,6 @@ public class DictionaryConnection {
 
             String welcomeMessage = in.readLine();
 
-//            System.out.println(welcomeMessage);
             if (welcomeMessage == null || !welcomeMessage.startsWith("220")){
                 throw new DictConnectionException("Invalid welcome message");
             }
@@ -72,7 +70,6 @@ public class DictionaryConnection {
      *
      */
     public synchronized void close() {
-        // TODO Add your code here
         try {
             out.println("QUIT");
             out.flush();
@@ -108,7 +105,53 @@ public class DictionaryConnection {
     public synchronized Collection<Definition> getDefinitions(String word, Database database) throws DictConnectionException {
         Collection<Definition> set = new ArrayList<>();
 
-        // TODO Add your code here
+        if (word.split(" ").length > 1){
+            word = '"' + word + '"';
+        }
+
+        String query = "DEFINE " + database.getName() + " " + word;
+
+        try {
+            out.println(query);
+            out.flush();
+
+            String initialResponse = in.readLine();
+            String[] responseInfo = splitAtoms(initialResponse);
+            if (responseInfo[0].equals("552") || responseInfo[0].equals("550")) {
+                return set;
+            } else if (responseInfo[0].equals("150")) {
+                System.out.println("THERE ARE: " + responseInfo[1] + " definitions" );
+            } else {
+                throw new DictConnectionException("Undesired Response: " + responseInfo[0]);
+            }
+
+            int numberOfDefinitions = Integer.parseInt(responseInfo[1]);
+            for (int i = 0; i < numberOfDefinitions; i++) {
+                String responseOne = in.readLine();
+                String[] responseCode = splitAtoms(responseOne);
+                if (!responseCode[0].equals("151")) {
+                    throw new DictConnectionException("Invalid Response: Status code should equal 151");
+                }
+                Definition definition = new Definition(responseCode[1], responseCode[2]);
+
+                String definitionText;
+                while (true) {
+                    definitionText = in.readLine();
+                    if (definitionText.equals(".")) break;
+                    definition.appendDefinition(definitionText);
+                }
+                set.add(definition);
+            }
+
+            // Check Completion Status:
+            String completionResponse = in.readLine();
+            String[] completionInfo = splitAtoms(completionResponse);
+            if (!completionInfo[0].equals("250")){
+                throw new DictConnectionException("Competition Status Code is Wrong");
+            }
+        } catch (Exception e) {
+            throw new DictConnectionException("Error during getMatchList", e);
+        }
 
         return set;
     }
@@ -126,19 +169,22 @@ public class DictionaryConnection {
     public synchronized Set<String> getMatchList(String word, MatchingStrategy strategy, Database database) throws DictConnectionException {
         Set<String> set = new LinkedHashSet<>();
 
-        // TODO Add your code here
+        if (word.split(" ").length > 1){
+            word = '"' + word + '"';
+        }
+
+        String query = "MATCH " + database.getName() + " " + strategy.getName() + " " + word;
         try {
-            out.println("MATCH " + database.getName() + " " + strategy.getName() + " " + word);
+            out.println(query);
             out.flush();
 
             String initialResponse = in.readLine();
             String[] responseInfo = splitAtoms(initialResponse);
-            if (responseInfo[0].equals("552")) {
+            if (responseInfo[0].equals("550") || responseInfo[0].equals("551") || responseInfo[0].equals("552")) {
                 return set;
             } else if (responseInfo[0].equals("152")) {
                 System.out.println("THERE ARE: " + responseInfo[1] + " Matches" );
             } else {
-                System.out.println("IS THIS WHERE THE ERROR IS BEING THROWN " + responseInfo[0]);
                 throw new DictConnectionException("Unknown response: " + responseInfo[0]);
             }
 
@@ -148,8 +194,6 @@ public class DictionaryConnection {
                     break;
                 }
                 String[] matchedWords = splitAtoms(response);
-                System.out.println("Matched Word Dictionary: " + matchedWords[0]);
-                System.out.println("Matched Word: " + matchedWords[1]);
                 set.add(matchedWords[1]);
             }
 
@@ -258,9 +302,39 @@ public class DictionaryConnection {
      * @throws DictConnectionException If the connection was interrupted or the messages don't match their expected value.
      */
     public synchronized String getDatabaseInfo(Database d) throws DictConnectionException {
-	StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
+        String query = "SHOW INFO " + d.getName();
 
-        // TODO Add your code here
+        try {
+            out.println(query);
+            out.flush();
+
+            String initialResponse = in.readLine();
+            String[] responseInfo = splitAtoms(initialResponse);
+            if (responseInfo[0].equals("550")) {
+                return sb.toString();
+            } else if (!responseInfo[0].equals("112")) {
+                throw new DictConnectionException("Invalid Status Code: " + responseInfo[0]);
+            }
+
+            String response;
+            while ((response = in.readLine()) != null) {
+                if (response.equals(".")){
+                    break;
+                }
+                sb.append(response);
+                sb.append("\n");
+            }
+
+            // Check Completion Status:
+            String completionResponse = in.readLine();
+            String[] completionInfo = splitAtoms(completionResponse);
+            if (!completionInfo[0].equals("250")){
+                throw new DictConnectionException("Competition Status Code is Wrong");
+            }
+        } catch (Exception e) {
+            throw new DictConnectionException("Error during getDatabaseInfo", e);
+        }
 
         return sb.toString();
     }

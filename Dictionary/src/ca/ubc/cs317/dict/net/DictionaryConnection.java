@@ -13,6 +13,8 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.*;
 
+import static ca.ubc.cs317.dict.net.DictStringParser.splitAtoms;
+
 /**
  * Created by Jonatan on 2017-09-09.
  */
@@ -44,6 +46,7 @@ public class DictionaryConnection {
             if (welcomeMessage == null || !welcomeMessage.startsWith("220")){
                 throw new DictConnectionException("Invalid welcome message");
             }
+            System.out.println("CONNECTED TO SOCKET");
         } catch (UnknownHostException e) {
             throw new DictConnectionException("Unknown host: " + host, e);
         } catch (ConnectException e){
@@ -84,6 +87,7 @@ public class DictionaryConnection {
                 if (dictSocket != null) {
                     dictSocket.close();
                 }
+                System.out.println("SOCKET CONNECTION SUCCESSFULLY CLOSED");
             } catch (Exception e) {
                 System.err.println("Warning: Exception during close: " + e.getMessage());
             }
@@ -123,6 +127,41 @@ public class DictionaryConnection {
         Set<String> set = new LinkedHashSet<>();
 
         // TODO Add your code here
+        try {
+            out.println("MATCH " + database.getName() + " " + strategy.getName() + " " + word);
+            out.flush();
+
+            String initialResponse = in.readLine();
+            String[] responseInfo = splitAtoms(initialResponse);
+            if (responseInfo[0].equals("552")) {
+                return set;
+            } else if (responseInfo[0].equals("152")) {
+                System.out.println("THERE ARE: " + responseInfo[1] + " Matches" );
+            } else {
+                System.out.println("IS THIS WHERE THE ERROR IS BEING THROWN " + responseInfo[0]);
+                throw new DictConnectionException("Unknown response: " + responseInfo[0]);
+            }
+
+            String response;
+            while ((response = in.readLine()) != null) {
+                if (response.equals(".")){
+                    break;
+                }
+                String[] matchedWords = splitAtoms(response);
+                System.out.println("Matched Word Dictionary: " + matchedWords[0]);
+                System.out.println("Matched Word: " + matchedWords[1]);
+                set.add(matchedWords[1]);
+            }
+
+            // Check Completion Status:
+            String completionResponse = in.readLine();
+            String[] completionInfo = splitAtoms(completionResponse);
+            if (!completionInfo[0].equals("250")){
+                throw new DictConnectionException("Competition Status Code is Wrong");
+            }
+        } catch (Exception e) {
+            throw new DictConnectionException("Error during getMatchList", e);
+        }
 
         return set;
     }
@@ -134,9 +173,39 @@ public class DictionaryConnection {
      */
     public synchronized Map<String, Database> getDatabaseList() throws DictConnectionException {
         Map<String, Database> databaseMap = new HashMap<>();
+        try {
+            out.println("SHOW DATABASES");
+            out.flush();
 
-        // TODO Add your code here
+            String initialResponse = in.readLine();
+            String[] responseInfo = splitAtoms(initialResponse);
+            if (responseInfo[0].equals("554")) {
+                return databaseMap;
+            } else if (responseInfo[0].equals("110")) {
+                System.out.println("THERE ARE: " + responseInfo[1] + " Databases" );
+            } else {
+                throw new DictConnectionException("Unknown response: " + responseInfo[0]);
+            }
 
+            String response;
+            while ((response = in.readLine()) != null) {
+                if (response.equals(".")){
+                    break;
+                }
+                String[] databaseInfo = splitAtoms(response);
+                Database dbItem = new Database(databaseInfo[0], databaseInfo[1]);
+                databaseMap.put(dbItem.getName(), dbItem);
+            }
+
+            // Check Completion Status:
+            String completionResponse = in.readLine();
+            String[] completionInfo = splitAtoms(completionResponse);
+            if (!completionInfo[0].equals("250")){
+                throw new DictConnectionException("Competition Status Code is Wrong");
+            }
+        } catch (Exception e){
+            throw new DictConnectionException("Error during show databases", e);
+        }
         return databaseMap;
     }
 
@@ -147,9 +216,39 @@ public class DictionaryConnection {
      */
     public synchronized Set<MatchingStrategy> getStrategyList() throws DictConnectionException {
         Set<MatchingStrategy> set = new LinkedHashSet<>();
+        try {
+            out.println("SHOW STRATEGIES");
+            out.flush();
 
-        // TODO Add your code here
+            String initialResponse = in.readLine();
+            String[] responseInfo = splitAtoms(initialResponse);
+            if (responseInfo[0].equals("555")) {
+                return set;
+            } else if (responseInfo[0].equals("111")) {
+                System.out.println("THERE ARE: " + responseInfo[1] + " strategies" );
+            } else {
+                throw new DictConnectionException("Unknown response: " + responseInfo[0]);
+            }
 
+            String response;
+            while ((response = in.readLine()) != null) {
+                if (response.equals(".")){
+                    break;
+                }
+                String[] strategyInfo = splitAtoms(response);
+                MatchingStrategy strategyItem = new MatchingStrategy(strategyInfo[0], strategyInfo[1]);
+                set.add(strategyItem);
+            }
+
+            // Check Completion Status:
+            String completionResponse = in.readLine();
+            String[] completionInfo = splitAtoms(completionResponse);
+            if (!completionInfo[0].equals("250")){
+                throw new DictConnectionException("Competition Status Code is Wrong");
+            }
+        } catch (Exception e){
+            throw new DictConnectionException("Error during show strategies", e);
+        }
         return set;
     }
 

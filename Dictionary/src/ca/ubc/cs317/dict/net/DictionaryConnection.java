@@ -14,13 +14,20 @@ import java.net.UnknownHostException;
 import java.util.*;
 
 import static ca.ubc.cs317.dict.net.DictStringParser.splitAtoms;
-
 /**
  * Created by Jonatan on 2017-09-09.
+ *
+ * General Notes to Grader:
+ * I feel like the code is generally well written. I didn't want to flood the code
+ * with tons of explanatory comments, especially considering I spent a lot of time writing
+ * pretty detailed exception messages. Having said that, parts of the code which I feel
+ * can be confusing or requires some function specific code are commented.
  */
 public class DictionaryConnection {
 
     private static final int DEFAULT_PORT = 2628;
+
+    // Declaring variable at class scope, so every function can access them
     private Socket dictSocket;
     private BufferedReader in;
     private PrintWriter out;
@@ -80,6 +87,9 @@ public class DictionaryConnection {
         } catch (Exception e) {
             System.err.println("Warning: Exception during close: " + e.getMessage());
         } finally {
+            // Since it is possible for their to be a case that an error is thrown while
+            // we are reading 'in' or printing 'out', we should have a finally block whose
+            // only job is to close socket.
             try{
                 if (dictSocket != null) {
                     dictSocket.close();
@@ -117,6 +127,7 @@ public class DictionaryConnection {
 
             String initialResponse = in.readLine();
             String[] responseInfo = splitAtoms(initialResponse);
+            // Invalid Database or no match then we return an empty set
             if (responseInfo[0].equals("552") || responseInfo[0].equals("550")) {
                 return set;
             } else if (responseInfo[0].equals("150")) {
@@ -127,6 +138,7 @@ public class DictionaryConnection {
 
             int numberOfDefinitions = Integer.parseInt(responseInfo[1]);
             for (int i = 0; i < numberOfDefinitions; i++) {
+                // This is validating that the response we got for each word is correct and has status code 151
                 String responseOne = in.readLine();
                 String[] responseCode = splitAtoms(responseOne);
                 if (!responseCode[0].equals("151")) {
@@ -134,6 +146,7 @@ public class DictionaryConnection {
                 }
                 Definition definition = new Definition(responseCode[1], responseCode[2]);
 
+                // This is essentially concatenating all the definition text for each word.
                 String definitionText;
                 while (true) {
                     definitionText = in.readLine();
@@ -169,6 +182,7 @@ public class DictionaryConnection {
     public synchronized Set<String> getMatchList(String word, MatchingStrategy strategy, Database database) throws DictConnectionException {
         Set<String> set = new LinkedHashSet<>();
 
+        // Need this for the case where user inputs multiple words. Double quotes allows us to treat that as one.
         if (word.split(" ").length > 1){
             word = '"' + word + '"';
         }
@@ -180,6 +194,7 @@ public class DictionaryConnection {
 
             String initialResponse = in.readLine();
             String[] responseInfo = splitAtoms(initialResponse);
+            // Invalid Database, Strategy or no match then we return an empty set
             if (responseInfo[0].equals("550") || responseInfo[0].equals("551") || responseInfo[0].equals("552")) {
                 return set;
             } else if (responseInfo[0].equals("152")) {
@@ -231,6 +246,7 @@ public class DictionaryConnection {
                 throw new DictConnectionException("Unknown response: " + responseInfo[0]);
             }
 
+            // Building a database item to add to our databaseMap
             String response;
             while ((response = in.readLine()) != null) {
                 if (response.equals(".")){
@@ -274,6 +290,7 @@ public class DictionaryConnection {
                 throw new DictConnectionException("Unknown response: " + responseInfo[0]);
             }
 
+            // Building a strategy item to add to our strategy set
             String response;
             while ((response = in.readLine()) != null) {
                 if (response.equals(".")){
@@ -317,6 +334,7 @@ public class DictionaryConnection {
                 throw new DictConnectionException("Invalid Status Code: " + responseInfo[0]);
             }
 
+            // Concatenating each row into one big chunk of text using StringBuilder
             String response;
             while ((response = in.readLine()) != null) {
                 if (response.equals(".")){

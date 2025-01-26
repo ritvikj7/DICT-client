@@ -5,8 +5,12 @@ import ca.ubc.cs317.dict.model.Definition;
 import ca.ubc.cs317.dict.model.MatchingStrategy;
 
 import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.ConnectException;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.*;
 
 /**
@@ -15,6 +19,9 @@ import java.util.*;
 public class DictionaryConnection {
 
     private static final int DEFAULT_PORT = 2628;
+    private Socket dictSocket;
+    private BufferedReader in;
+    private PrintWriter out;
 
     /** Establishes a new connection with a DICT server using an explicit host and port number, and handles initial
      * welcome messages.
@@ -26,7 +33,24 @@ public class DictionaryConnection {
      */
     public DictionaryConnection(String host, int port) throws DictConnectionException {
         // TODO Replace this with code that creates the requested connection
-        throw new DictConnectionException("Not implemented");
+        try {
+            dictSocket = new Socket(host, port);
+            in = new BufferedReader(new InputStreamReader(dictSocket.getInputStream()));
+            out = new PrintWriter(dictSocket.getOutputStream(), true);
+
+            String welcomeMessage = in.readLine();
+
+//            System.out.println(welcomeMessage);
+            if (welcomeMessage == null || !welcomeMessage.startsWith("220")){
+                throw new DictConnectionException("Invalid welcome message");
+            }
+        } catch (UnknownHostException e) {
+            throw new DictConnectionException("Unknown host: " + host, e);
+        } catch (ConnectException e){
+            throw new DictConnectionException("Server refused to connect: " + host, e);
+        } catch (IOException e) {
+            throw new DictConnectionException("I/O error during connection to " + host + ":" + port, e);
+        }
     }
 
     /** Establishes a new connection with a DICT server using an explicit host, with the default DICT port number, and
@@ -45,8 +69,26 @@ public class DictionaryConnection {
      *
      */
     public synchronized void close() {
-
         // TODO Add your code here
+        try {
+            out.println("QUIT");
+            out.flush();
+            String reply = in.readLine();
+            if (reply != null) {
+                System.out.println("Server reply to QUIT: " + reply);
+            }
+        } catch (Exception e) {
+            System.err.println("Warning: Exception during close: " + e.getMessage());
+        } finally {
+            try{
+                if (dictSocket != null) {
+                    dictSocket.close();
+                }
+            } catch (Exception e) {
+                System.err.println("Warning: Exception during close: " + e.getMessage());
+            }
+            dictSocket = null;
+        }
     }
 
     /** Requests and retrieves all definitions for a specific word.

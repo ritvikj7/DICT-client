@@ -127,8 +127,8 @@ public class DictionaryConnection {
 
             String initialResponse = in.readLine();
             String[] responseInfo = splitAtoms(initialResponse);
-            // Invalid Database or no match then we return an empty set
-            if (responseInfo[0].equals("552") || responseInfo[0].equals("550")) {
+            // Invalid Database or no match or empty word then we return an empty set
+            if (responseInfo[0].equals("552") || responseInfo[0].equals("550") || word.isEmpty()) {
                 return set;
             } else if (responseInfo[0].equals("150")) {
                 System.out.println("THERE ARE: " + responseInfo[1] + " definitions" );
@@ -150,7 +150,9 @@ public class DictionaryConnection {
                 String definitionText;
                 while (true) {
                     definitionText = in.readLine();
-                    if (definitionText.equals(".")) break;
+                    if (definitionText.equals(".")) {
+                        break;
+                    }
                     definition.appendDefinition(definitionText);
                 }
                 set.add(definition);
